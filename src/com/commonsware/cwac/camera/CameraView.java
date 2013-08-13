@@ -119,6 +119,10 @@ public class CameraView extends ViewGroup implements
     inPreview=true;
   }
 
+  public void autoFocus(Camera.AutoFocusCallback cb) {
+	  camera.autoFocus(cb);
+  }
+
   public void takePicture(boolean needBitmap, boolean needByteArray) {
     if (inPreview) {
       this.needBitmap=needBitmap;
