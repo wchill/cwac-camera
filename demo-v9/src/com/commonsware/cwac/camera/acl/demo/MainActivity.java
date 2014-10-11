@@ -20,23 +20,28 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.view.KeyEvent;
 import android.widget.ArrayAdapter;
 import java.io.File;
 import com.actionbarsherlock.app.ActionBar;
 import com.actionbarsherlock.app.SherlockFragmentActivity;
 import com.actionbarsherlock.view.Menu;
 import com.actionbarsherlock.view.MenuItem;
-import com.commonsware.cwac.camera.acl.CameraFragment;
 
 public class MainActivity extends SherlockFragmentActivity implements
-    ActionBar.OnNavigationListener {
+    ActionBar.OnNavigationListener, DemoCameraFragment.Contract {
   private static final String STATE_SELECTED_NAVIGATION_ITEM=
       "selected_navigation_item";
+  private static final String STATE_LOCK_TO_LANDSCAPE=
+      "lock_to_landscape";
   private static final int CONTENT_REQUEST=1337;
-  private CameraFragment std=null;
-  private CameraFragment ffc=null;
-  private CameraFragment current=null;
+  private static final String STATE_SINGLE_SHOT="single_shot";
+  private DemoCameraFragment std=null;
+  private DemoCameraFragment ffc=null;
+  private DemoCameraFragment current=null;
   private boolean hasTwoCameras=(Camera.getNumberOfCameras() > 1);
+  private boolean singleShot=false;
+  private boolean isLockedToLandscape=false;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -72,6 +77,14 @@ public class MainActivity extends SherlockFragmentActivity implements
         getSupportActionBar().setSelectedNavigationItem(savedInstanceState.getInt(STATE_SELECTED_NAVIGATION_ITEM));
       }
     }
+
+    setSingleShotMode(savedInstanceState.getBoolean(STATE_SINGLE_SHOT));
+    isLockedToLandscape=
+        savedInstanceState.getBoolean(STATE_LOCK_TO_LANDSCAPE);
+
+    if (current != null) {
+      current.lockToLandscape(isLockedToLandscape);
+    }
   }
 
   @Override
@@ -80,6 +93,9 @@ public class MainActivity extends SherlockFragmentActivity implements
       outState.putInt(STATE_SELECTED_NAVIGATION_ITEM,
                       getSupportActionBar().getSelectedNavigationIndex());
     }
+
+    outState.putBoolean(STATE_SINGLE_SHOT, isSingleShotMode());
+    outState.putBoolean(STATE_LOCK_TO_LANDSCAPE, isLockedToLandscape);
   }
 
   @Override
@@ -103,12 +119,21 @@ public class MainActivity extends SherlockFragmentActivity implements
                                .replace(R.id.container, current)
                                .commit();
 
+    findViewById(android.R.id.content).post(new Runnable() {
+      @Override
+      public void run() {
+        current.lockToLandscape(isLockedToLandscape);
+      }
+    });
+
     return(true);
   }
 
   @Override
   public boolean onCreateOptionsMenu(Menu menu) {
     getSupportMenuInflater().inflate(R.menu.main, menu);
+
+    menu.findItem(R.id.landscape).setChecked(isLockedToLandscape);
 
     return(super.onCreateOptionsMenu(menu));
   }
@@ -128,6 +153,7 @@ public class MainActivity extends SherlockFragmentActivity implements
     else if (item.getItemId() == R.id.landscape) {
       item.setChecked(!item.isChecked());
       current.lockToLandscape(item.isChecked());
+      isLockedToLandscape=item.isChecked();
     }
 
     return(super.onOptionsItemSelected(item));
@@ -141,5 +167,27 @@ public class MainActivity extends SherlockFragmentActivity implements
         // do nothing
       }
     }
+  }
+
+  @Override
+  public boolean onKeyDown(int keyCode, KeyEvent event) {
+    if (keyCode == KeyEvent.KEYCODE_CAMERA && current != null
+        && !current.isSingleShotProcessing()) {
+      current.takePicture();
+
+      return(true);
+    }
+
+    return(super.onKeyDown(keyCode, event));
+  }
+
+  @Override
+  public boolean isSingleShotMode() {
+    return(singleShot);
+  }
+
+  @Override
+  public void setSingleShotMode(boolean mode) {
+    singleShot=mode;
   }
 }
